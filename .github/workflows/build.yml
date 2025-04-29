@@ -1,0 +1,41 @@
+name: Build OpenWrt Packages
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext unzip file libssl-dev wget python3 python3-distutils rsync
+
+      - name: Setup OpenWrt SDK
+        run: |
+          mkdir sdk && cd sdk
+          wget https://downloads.openwrt.org/releases/22.03.5/targets/x86/64/openwrt-sdk-22.03.5-x86-64_gcc-11.2.0_musl.Linux-x86_64.tar.xz
+          tar -xf openwrt-sdk-*.tar.xz
+          mv openwrt-sdk-* sdk_dir
+          cd ..
+
+      - name: Build luci-app-xray
+        run: |
+          cp -r $GITHUB_WORKSPACE sdk/sdk_dir/package/luci-app-xray
+          cd sdk/sdk_dir
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          make package/luci-app-xray/compile V=s
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: luci-app-xray-ipks
+          path: sdk/sdk_dir/bin/packages/*/luci/luci-app-xray*.ipk
